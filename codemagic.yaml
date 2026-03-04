@@ -10,6 +10,18 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Debug - list files
+        script: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of src folder:"
+          ls -la
+          echo ""
+          echo "Looking for .xcworkspace directories:"
+          find . -name "*.xcworkspace" -type d
+          echo ""
+          echo "Looking for .xcodeproj directories:"
+          find . -name "*.xcodeproj" -type d
+      
       - name: Install CocoaPods dependencies
         script: |
           pod install --repo-update
@@ -20,31 +32,33 @@ workflows:
       
       - name: Build IPA
         script: |
-          # Находим точное имя workspace или project файла
-          WORKSPACE_FILE=$(ls *.xcworkspace | head -n 1)
-          PROJECT_FILE=$(ls *.xcodeproj | head -n 1)
+          # Находим папку .xcworkspace (не файл)
+          WORKSPACE_DIR=$(find . -name "*.xcworkspace" -type d -maxdepth 1 | head -n 1)
+          PROJECT_DIR=$(find . -name "*.xcodeproj" -type d -maxdepth 1 | head -n 1)
           
-          echo "Found files in $(pwd):"
-          ls -la
+          echo "Found workspace directory: $WORKSPACE_DIR"
+          echo "Found project directory: $PROJECT_DIR"
           echo ""
           
-          if [ -n "$WORKSPACE_FILE" ]; then
-            echo "Building with workspace: $WORKSPACE_FILE"
-            xcode-project build-ipa \
-              --workspace "$WORKSPACE_FILE" \
-              --scheme "GrafChat"
-          elif [ -n "$PROJECT_FILE" ]; then
-            echo "Building with project: $PROJECT_FILE"
-            # Извлекаем имя проекта без расширения .xcodeproj
-            SCHEME_NAME=$(basename "$PROJECT_FILE" .xcodeproj)
+          if [ -n "$WORKSPACE_DIR" ]; then
+            echo "Building with workspace: $WORKSPACE_DIR"
+            # Извлекаем имя схемы из имени папки (убираем .xcworkspace)
+            SCHEME_NAME=$(basename "$WORKSPACE_DIR" .xcworkspace)
             echo "Using scheme: $SCHEME_NAME"
+            
             xcode-project build-ipa \
-              --project "$PROJECT_FILE" \
+              --workspace "$WORKSPACE_DIR" \
+              --scheme "$SCHEME_NAME"
+          elif [ -n "$PROJECT_DIR" ]; then
+            echo "Building with project: $PROJECT_DIR"
+            SCHEME_NAME=$(basename "$PROJECT_DIR" .xcodeproj)
+            echo "Using scheme: $SCHEME_NAME"
+            
+            xcode-project build-ipa \
+              --project "$PROJECT_DIR" \
               --scheme "$SCHEME_NAME"
           else
             echo "No Xcode project or workspace found!"
-            echo "Contents of current directory:"
-            ls -la
             exit 1
           fi
     
