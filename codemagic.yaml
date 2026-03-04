@@ -9,58 +9,64 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
+      # Явно указываем требования к подписи
+      ios_signing:
+        distribution_type: app_store  # или development, ad_hoc
+        bundle_identifier: com.yourcompany.grafchat  # Замените на ваш bundle ID
+        
     scripts:
-      - name: Debug - list files
-        script: |
-          echo "Current directory: $(pwd)"
-          echo "Contents of src folder:"
-          ls -la
-          echo ""
-          echo "Looking for .xcworkspace directories:"
-          find . -name "*.xcworkspace" -type d
-          echo ""
-          echo "Looking for .xcodeproj directories:"
-          find . -name "*.xcodeproj" -type d
-      
       - name: Install CocoaPods dependencies
         script: |
           pod install --repo-update
       
-      - name: Code signing setup
+      - name: Set up code signing
         script: |
-          xcode-project use-profiles
+          # Инициализация keychain
+          keychain initialize
+          
+          # Используем профили из Codemagic Signing Identities
+          xcode-project use-profiles --verbose
       
       - name: Build IPA
         script: |
-          # Находим папку .xcworkspace (не файл)
-          WORKSPACE_DIR=$(find . -name "*.xcworkspace" -type d -maxdepth 1 | head -n 1)
-          PROJECT_DIR=$(find . -name "*.xcodeproj" -type d -maxdepth 1 | head -n 1)
-          
-          echo "Found workspace directory: $WORKSPACE_DIR"
-          echo "Found project directory: $PROJECT_DIR"
-          echo ""
-          
-          if [ -n "$WORKSPACE_DIR" ]; then
-            echo "Building with workspace: $WORKSPACE_DIR"
-            # Извлекаем имя схемы из имени папки (убираем .xcworkspace)
-            SCHEME_NAME=$(basename "$WORKSPACE_DIR" .xcworkspace)
-            echo "Using scheme: $SCHEME_NAME"
-            
-            xcode-project build-ipa \
-              --workspace "$WORKSPACE_DIR" \
-              --scheme "$SCHEME_NAME"
-          elif [ -n "$PROJECT_DIR" ]; then
-            echo "Building with project: $PROJECT_DIR"
-            SCHEME_NAME=$(basename "$PROJECT_DIR" .xcodeproj)
-            echo "Using scheme: $SCHEME_NAME"
-            
-            xcode-project build-ipa \
-              --project "$PROJECT_DIR" \
-              --scheme "$SCHEME_NAME"
+          # Явно указываем путь к export options plist (создается на предыдущем шаге)
+          if [ -f "/Users/builder/export_options.plist" ]; then
+            EXPORT_OPTIONS="/Users/builder/export_options.plist"
           else
-            echo "No Xcode project or workspace found!"
-            exit 1
+            # Создаем свой export options если нужно
+            EXPORT_OPTIONS="/tmp/export_options.plist"
+            cat > "$EXPORT_OPTIONS" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.yourcompany.grafchat</key>
+        <string>GrafChat Distribution Profile</string>
+    </dict>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+</dict>
+</plist>
+EOF
           fi
+          
+          # Сборка с правильными параметрами
+          xcode-project build-ipa \
+            --workspace "GrafChat.xcworkspace" \
+            --scheme "GrafChat" \
+            --export-options-plist "$EXPORT_OPTIONS"
     
     artifacts:
       - build/ios/ipa/*.ipa
