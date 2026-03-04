@@ -1,6 +1,3 @@
-# Codemagic configuration for PWABuilder iOS project
-# Generated on 03/04/2026
-
 workflows:
   ios-build:
     name: Build iOS PWA
@@ -9,68 +6,32 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
-      # Явно указываем требования к подписи
-      ios_signing:
-        distribution_type: app_store  # или development, ad_hoc
-        bundle_identifier: com.yourcompany.grafchat  # Замените на ваш bundle ID
-        
+      groups:
+        - app_store_credentials  # группа с вашими ключами API
+    integrations:
+      app_store_connect: your_api_key_name  # имя из интеграций
+    
     scripts:
-      - name: Install CocoaPods dependencies
-        script: |
-          pod install --repo-update
+      - name: Install dependencies
+        script: pod install --repo-update
       
-      - name: Set up code signing
+      - name: Fetch signing files automatically
         script: |
-          # Инициализация keychain
+          app-store-connect fetch-signing-files "com.yourcompany.grafchat" \
+            --type IOS_APP_STORE \
+            --create
+      
+      - name: Set up signing
+        script: |
           keychain initialize
-          
-          # Используем профили из Codemagic Signing Identities
-          xcode-project use-profiles --verbose
+          keychain add-certificates
+          xcode-project use-profiles
       
       - name: Build IPA
         script: |
-          # Явно указываем путь к export options plist (создается на предыдущем шаге)
-          if [ -f "/Users/builder/export_options.plist" ]; then
-            EXPORT_OPTIONS="/Users/builder/export_options.plist"
-          else
-            # Создаем свой export options если нужно
-            EXPORT_OPTIONS="/tmp/export_options.plist"
-            cat > "$EXPORT_OPTIONS" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>app-store</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.yourcompany.grafchat</key>
-        <string>GrafChat Distribution Profile</string>
-    </dict>
-    <key>signingCertificate</key>
-    <string>iPhone Distribution</string>
-    <key>signingStyle</key>
-    <string>manual</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-</dict>
-</plist>
-EOF
-          fi
-          
-          # Сборка с правильными параметрами
           xcode-project build-ipa \
             --workspace "GrafChat.xcworkspace" \
-            --scheme "GrafChat" \
-            --export-options-plist "$EXPORT_OPTIONS"
+            --scheme "GrafChat"
     
     artifacts:
       - build/ios/ipa/*.ipa
-    publishing:
-      email:
-        recipients:
-          - your-email@example.com
