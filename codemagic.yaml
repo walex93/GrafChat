@@ -1,0 +1,34 @@
+﻿# Codemagic configuration for PWABuilder iOS project
+# Generated on 03/04/2026 10:48:31
+
+workflows:
+  ios-build:
+    name: Build iOS PWA
+    working_directory: src
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: |
+          if [ -f "Podfile" ]; then
+            pod install
+          else
+            echo "No Podfile found"
+          fi
+      - name: Code signing setup
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          if [ -f "*.xcworkspace" ]; then
+            xcode-project build-ipa --workspace "*.xcworkspace" --scheme "GrafChat"
+          else
+            xcode-project build-ipa --project "*.xcodeproj" --scheme "GrafChat"
+          fi
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
