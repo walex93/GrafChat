@@ -1,7 +1,7 @@
-# codemagic.yaml
+# codemagic.yaml (ДЛЯ УСТРОЙСТВА)
 workflows:
-  build:  # <- Теперь ID = "build" (проще некуда)
-    name: Build iOS PWA - Simulator
+  build:  # ТОТ ЖЕ САМЫЙ ID, НИЧЕГО НЕ МЕНЯЕМ!
+    name: Build iOS PWA - Device
     working_directory: src
     instance_type: mac_mini_m2
     environment:
@@ -12,17 +12,29 @@ workflows:
         script: |
           pod install --repo-update
       
-      - name: Build for Simulator
+      - name: Build for Device (unsigned)
         script: |
-          xcodebuild build \
+          xcodebuild clean build \
             -workspace "GrafChat.xcworkspace" \
             -scheme "GrafChat" \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16e' \
+            -sdk iphoneos \
+            -configuration Release \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
+      
+      - name: Find and prepare .app
+        script: |
+          echo "Looking for built .app..."
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "✅ Found .app at $APP_PATH"
+            cp -R "$APP_PATH" ./GrafChat.app
+            echo "✅ .app copied to current directory"
+          else
+            echo "❌ Error: .app not found!"
+            exit 1
+          fi
     
     artifacts:
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - GrafChat.app
