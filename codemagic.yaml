@@ -1,7 +1,7 @@
-# codemagic.yaml (ДЛЯ УСТРОЙСТВА)
+# codemagic.yaml
 workflows:
-  build:  # ТОТ ЖЕ САМЫЙ ID, НИЧЕГО НЕ МЕНЯЕМ!
-    name: Build iOS PWA - Device
+  build:  # <- ИСПОЛЬЗУЕМ ЭТОТ ID (он точно работает!)
+    name: Build for REAL DEVICE
     working_directory: src
     instance_type: mac_mini_m2
     environment:
@@ -12,8 +12,12 @@ workflows:
         script: |
           pod install --repo-update
       
-      - name: Build for Device (unsigned)
+      - name: Build for REAL DEVICE (unsigned)
         script: |
+          # Очистка предыдущих сборок
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          
+          # Сборка для реального устройства
           xcodebuild clean build \
             -workspace "GrafChat.xcworkspace" \
             -scheme "GrafChat" \
@@ -23,18 +27,34 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
       
-      - name: Find and prepare .app
+      - name: Find and copy .app
         script: |
-          echo "Looking for built .app..."
+          echo "🔍 Looking for built .app..."
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -1)
+          
           if [ -n "$APP_PATH" ]; then
-            echo "✅ Found .app at $APP_PATH"
+            echo "✅ Found .app at: $APP_PATH"
             cp -R "$APP_PATH" ./GrafChat.app
             echo "✅ .app copied to current directory"
+            
+            # Показать размер файла
+            du -sh ./GrafChat.app
           else
-            echo "❌ Error: .app not found!"
+            echo "❌ ERROR: .app not found!"
+            echo "Contents of DerivedData:"
+            ls -la ~/Library/Developer/Xcode/DerivedData/
             exit 1
           fi
+      
+      - name: Create IPA structure
+        script: |
+          # Создаем правильную структуру IPA
+          mkdir -p Payload
+          cp -R GrafChat.app Payload/
+          zip -r GrafChat.ipa Payload
+          rm -rf Payload
+          echo "✅ IPA created: GrafChat.ipa"
     
     artifacts:
       - GrafChat.app
+      - GrafChat.ipa
