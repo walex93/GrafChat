@@ -1,5 +1,5 @@
-﻿# Codemagic configuration for PWABuilder iOS project
-# Generated on 03/04/2026 10:48:31
+# Codemagic configuration for PWABuilder iOS project
+# Generated on 03/04/2026
 
 workflows:
   ios-build:
@@ -10,22 +10,44 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install dependencies
+      - name: Install CocoaPods dependencies
         script: |
-          if [ -f "Podfile" ]; then
-            pod install
-          else
-            echo "No Podfile found"
-          fi
+          pod install --repo-update
+      
       - name: Code signing setup
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles
+      
       - name: Build IPA
         script: |
-          if [ -f "*.xcworkspace" ]; then
-            xcode-project build-ipa --workspace "*.xcworkspace" --scheme "GrafChat"
+          # Находим точное имя workspace или project файла
+          WORKSPACE_FILE=$(ls *.xcworkspace | head -n 1)
+          PROJECT_FILE=$(ls *.xcodeproj | head -n 1)
+          
+          echo "Found files in $(pwd):"
+          ls -la
+          echo ""
+          
+          if [ -n "$WORKSPACE_FILE" ]; then
+            echo "Building with workspace: $WORKSPACE_FILE"
+            xcode-project build-ipa \
+              --workspace "$WORKSPACE_FILE" \
+              --scheme "GrafChat"
+          elif [ -n "$PROJECT_FILE" ]; then
+            echo "Building with project: $PROJECT_FILE"
+            # Извлекаем имя проекта без расширения .xcodeproj
+            SCHEME_NAME=$(basename "$PROJECT_FILE" .xcodeproj)
+            echo "Using scheme: $SCHEME_NAME"
+            xcode-project build-ipa \
+              --project "$PROJECT_FILE" \
+              --scheme "$SCHEME_NAME"
           else
-            xcode-project build-ipa --project "*.xcodeproj" --scheme "GrafChat"
+            echo "No Xcode project or workspace found!"
+            echo "Contents of current directory:"
+            ls -la
+            exit 1
           fi
+    
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
