@@ -1,25 +1,25 @@
-# codemagic.yaml - Тестовая сборка для симулятора
+# codemagic.yaml
 workflows:
-  simulator-build:
-    name: Build for iOS Simulator (no signing)
+  ios-build:
+    name: Build iOS PWA - Test Version
     working_directory: src
     instance_type: mac_mini_m2
     environment:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install CocoaPods dependencies
+      - name: Install dependencies
         script: |
           pod install --repo-update
       
-      - name: Build for Simulator
+      - name: Build for Simulator (NO SIGNING)
         script: |
           xcodebuild build \
             -workspace "GrafChat.xcworkspace" \
             -scheme "GrafChat" \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest' \
             -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
